@@ -387,4 +387,4 @@ python -c "from chase_api.inference import test_inference; test_inference('yolov
 
 ## License
 
-This module is part of the AutonomyV1 AUV control system.
+Proprietary. Do not distribute.

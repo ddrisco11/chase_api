@@ -310,13 +310,6 @@ cd chase_api
 pip install -r requirements.txt
 ```
 
-Alternatively, when used inside a larger workspace, navigate to the module directory before installing:
-
-```bash
-cd apps/auvctl/chase_api
-pip install -r requirements.txt
-```
-
 ## License
 
 Proprietary. Do not distribute.

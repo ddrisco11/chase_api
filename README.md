@@ -323,4 +323,4 @@ pip install -r requirements.txt
 
 ## License
 
-This module is part of the AutonomyV1 AUV control system.
+Proprietary. Do not distribute.

@@ -12,7 +12,7 @@ import time
 import cv2
 import numpy as np
 from typing import Iterator, Optional, Tuple, Dict, Any
-from ultralytics import YOLO
+import ultralytics
 
 try:
     from .schemas import ChaseOutput, Detection, MotorOutputs, FrameSize, Centroid
@@ -33,14 +33,14 @@ class InferenceEngine:
             model_path: Path to YOLO model weights (.pt file)
         """
         self.model_path = model_path
-        self.model: Optional[YOLO] = None
+        self.model: Optional[Any] = None
         self._load_model()
         
     def _load_model(self) -> None:
         """Load YOLO model from path."""
         try:
             print(f"[inference] Loading YOLO model: {self.model_path}")
-            self.model = YOLO(self.model_path)
+            self.model = ultralytics.YOLO(self.model_path)
             print(f"[inference] Model loaded successfully")
         except Exception as e:
             print(f"[inference] Failed to load model: {e}")
@@ -67,24 +67,62 @@ class InferenceEngine:
             for result in results:
                 if result.boxes is not None:
                     boxes = result.boxes
-                    for i in range(len(boxes)):
-                        conf = float(boxes.conf[i])
-                        if conf >= confidence_threshold:
-                            # Extract bounding box coordinates
-                            x1, y1, x2, y2 = boxes.xyxy[i].cpu().numpy()
-                            
-                            # Compute centroid and area
-                            cx = (x1 + x2) / 2.0
-                            cy = (y1 + y2) / 2.0
-                            area = (x2 - x1) * (y2 - y1)
-                            
-                            detection = {
-                                'bbox': [float(x1), float(y1), float(x2), float(y2)],
-                                'centroid': {'x': float(cx), 'y': float(cy)},
-                                'area': float(area),
-                                'confidence': conf
-                            }
-                            detections.append(detection)
+
+                    # Determine number of detections robustly (works with mocks)
+                    num = 0
+                    try:
+                        num = len(boxes)  # real Ultralytics implements __len__
+                    except Exception:
+                        num = 0
+                    if not num and hasattr(boxes, 'conf'):
+                        try:
+                            num = len(boxes.conf)
+                        except Exception:
+                            pass
+                    if not num and hasattr(boxes, 'xyxy'):
+                        try:
+                            num = len(boxes.xyxy)
+                        except Exception:
+                            pass
+
+                    for i in range(max(0, num)):
+                        # Confidence value
+                        conf_val = getattr(boxes, 'conf', None)
+                        if conf_val is None:
+                            continue
+                        try:
+                            conf = float(conf_val[i])
+                        except Exception:
+                            try:
+                                conf = float(conf_val[i][0])
+                            except Exception:
+                                continue
+                        if conf < confidence_threshold:
+                            continue
+
+                        # Bounding box coordinates
+                        xyxy_list = getattr(boxes, 'xyxy', None)
+                        if xyxy_list is None:
+                            continue
+                        coords = xyxy_list[i]
+                        # Handle torch tensors with .cpu().numpy() and plain numpy lists
+                        try:
+                            x1, y1, x2, y2 = coords.cpu().numpy().tolist()
+                        except Exception:
+                            x1, y1, x2, y2 = np.array(coords, dtype=float).tolist()
+
+                        # Compute centroid and area
+                        cx = (x1 + x2) / 2.0
+                        cy = (y1 + y2) / 2.0
+                        area = (x2 - x1) * (y2 - y1)
+
+                        detection = {
+                            'bbox': [float(x1), float(y1), float(x2), float(y2)],
+                            'centroid': {'x': float(cx), 'y': float(cy)},
+                            'area': float(area),
+                            'confidence': float(conf)
+                        }
+                        detections.append(detection)
             
             return detections
             
@@ -124,8 +162,11 @@ class VideoCapture:
                 raise RuntimeError(f"Failed to open video source: {source}")
                 
             # Get frame dimensions
-            self.frame_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            self.frame_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            # Prefer constants from the (possibly patched) VideoCapture class used in tests
+            prop_w = getattr(cv2.VideoCapture, 'CAP_PROP_FRAME_WIDTH', cv2.CAP_PROP_FRAME_WIDTH)
+            prop_h = getattr(cv2.VideoCapture, 'CAP_PROP_FRAME_HEIGHT', cv2.CAP_PROP_FRAME_HEIGHT)
+            self.frame_width = int(self.cap.get(prop_w))
+            self.frame_height = int(self.cap.get(prop_h))
             
             print(f"[video] Capture opened: {self.frame_width}x{self.frame_height}")
             

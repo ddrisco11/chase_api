@@ -1,42 +1,71 @@
-# Chase API
+# Vision-Based AUV Control System for Object Tracking and Following
 
-A minimal, self-contained target chasing system using object detection and motor control for AUV (Autonomous Underwater Vehicle) applications.
+David Driscoll — Summer 2025  
+Woods Hole Oceanographic Institution — Applied Ocean Physics and Engineering
 
-## Overview
+## Objective
 
-The Chase API provides real-time target chasing capabilities by:
-- Running YOLO object detection on video streams
-- Computing motor outputs according to the Control System Specification
-- Streaming results in real-time for integration with existing control systems
+Develop a basic AUV control system to detect and chase objects autonomously.
 
-## Features
+## Deliverable
 
-- **Video Input**: Supports webcam, video files, and RTSP streams
-- **Object Detection**: Uses Ultralytics YOLO models for target detection
-- **Motor Control**: Implements 5-engine AUV control specification with proper clamping
-- **Real-time Streaming**: WebSocket API for live integration
-- **Python API**: Clean programmatic interface for custom applications
-- **CLI Tool**: Command-line interface for standalone usage
+A versatile API system that receives video input, detects objects using an AI model, and outputs motor commands according to a five-engine control specification. The system can be used through a command-line tool, a Python API, or a WebSocket service. It can receive inputs in a variety of formats and is highly customizable.
 
-## Quick Start
+## Future Additions
 
-### Installation
+- Additional computer vision elements: more robust options for tracking, such as zero-shot object detection
+- Cross-vehicle compatibility: a system to integrate with vehicles of different engine structures dynamically
+- More robust control specs: implement more complex control elements such as PID
+
+## Detailed Overview
+
+The Vision-Based AUV Control System is designed to enable an Autonomous Underwater Vehicle (AUV) to see, track, and follow objects on its own. At its core, the system combines underwater video input with artificial intelligence to detect objects of interest and translate those detections into movement commands for the vehicle’s motors. This allows the AUV to maintain a steady pursuit of a moving target without direct human control.
+
+The system is built around a flexible API (Application Programming Interface) that makes it easy to use in different ways. Operators or developers can interact with it through:
+
+- Command-line tool for quick testing and standalone use
+- Python API for programmatic integration into larger projects
+- WebSocket service for real-time communication with other systems
+
+This versatility ensures that the system can adapt to research, testing, and real-world applications without being locked into a single method of operation.
+
+### How It Works in Practice
+
+1. Video capture: the AUV receives a video feed from its onboard camera or another video source.
+2. Object detection: an AI model processes the video to identify and locate objects.
+3. Decision-making: the system calculates where the object is in relation to the AUV—whether it is too far, too close, off to the side, or above/below.
+4. Motor control: based on these calculations, the system generates signals for the AUV’s five engines. Two engines control forward/backward movement and turning, while three engines adjust vertical position (up/down).
+5. Continuous adjustment: this process repeats in real time, allowing the AUV to smoothly follow its target.
+
+### Benefits and Applications
+
+- Hands-free tracking: once a target is identified, the AUV can autonomously follow it, reducing the need for constant operator input.
+- Flexible integration: the system is lightweight and can be embedded into existing AUV frameworks or used as a standalone module.
+- Customizable behavior: parameters such as sensitivity, chase distance, and movement responsiveness can be easily adjusted.
+
+## Technical Specifications
+
+The Chase API is a lightweight, real-time control system that enables an Autonomous Underwater Vehicle (AUV) to autonomously track and follow targets using computer vision. It integrates object detection, target selection, and motor command generation into a modular and extensible package.
+
+## API Interfaces
+
+The Chase API is designed for maximum flexibility, offering three primary modes of integration.
+
+### Command-Line Tool (CLI)
+
+Run standalone experiments with webcams, RTSP streams, or video files. Supports adjustable confidence thresholds, chase parameters, and output formats (JSON, CSV).
 
 ```bash
-cd apps/auvctl/chase_api
-pip install -r requirements.txt
-```
-
-### CLI Usage
-
-```bash
-# Basic usage with webcam and target area
 python -m chase_api.runner \
     --video-source 0 \
     --model-path yolov10n.pt \
     --target-area 12000 \
     --confidence-threshold 0.25
+```
 
+Additional examples:
+
+```bash
 # Using chase distance instead of target area
 python -m chase_api.runner \
     --video-source 0 \
@@ -61,21 +90,15 @@ python -m chase_api.runner \
     --k-y 1.2
 ```
 
-### Python API Usage
+### Python API
+
+Provides both a high-level callback interface and a low-level generator interface for programmatic use.
 
 ```python
 from chase_api import run_chase, chase_stream, ChaseOutput
 
-# Method 1: High-level API with callback
 def handle_result(output: ChaseOutput):
-    """Process each chase result."""
-    if output.detection:
-        print(f"Target detected: area={output.detection.area:.1f}, conf={output.detection.confidence:.3f}")
-    else:
-        print("No target detected")
-    
-    motors = output.motors
-    print(f"Motors: [{motors.out1:.2f}, {motors.out2:.2f}, {motors.out3:.2f}, {motors.out4:.2f}, {motors.out5:.2f}]")
+    print(output.motors, output.detection)
 
 run_chase(
     video_source="0",
@@ -85,53 +108,36 @@ run_chase(
     on_result=handle_result
 )
 
-# Method 2: Generator API for custom processing
+# Generator example
 for result in chase_stream(
     video_source="test_video.mp4",
-    model_path="yolov10n.pt", 
+    model_path="yolov10n.pt",
     chase_distance=1.5,
     confidence_threshold=0.3
 ):
-    # Custom processing logic
-    if result.detection:
-        # Forward results to your control system
-        send_to_controller(result.motors)
-    
-    # Log or store results
-    with open("chase_log.jsonl", "a") as f:
-        f.write(result.model_dump_json() + "\n")
+    # Custom processing
+    pass
 ```
 
 ### WebSocket Service
 
-Start the FastAPI service:
+Enables real-time remote integration with control systems. Results are streamed as JSON messages over a WebSocket connection.
 
 ```bash
-# Start service on port 8088
-python -m chase_api.service
-
-# Or use uvicorn directly
 uvicorn chase_api.service:app --host 0.0.0.0 --port 8088
 ```
 
-Connect via WebSocket:
+Client connection example:
 
 ```javascript
-// JavaScript client example
 const ws = new WebSocket(
-    'ws://localhost:8088/ws/chase?' + 
-    'video_source=0&' +
-    'model_path=yolov10n.pt&' +
-    'target_area=12000&' +
-    'confidence_threshold=0.25'
+    'ws://localhost:8088/ws/chase?' +
+    'video_source=0&model_path=yolov10n.pt&target_area=12000'
 );
 
-ws.onmessage = function(event) {
+ws.onmessage = (event) => {
     const result = JSON.parse(event.data);
-    console.log('Chase result:', result);
-    
-    // Forward motor commands to your system
-    sendMotorCommands(result.motors);
+    console.log(result.motors, result.detection);
 };
 ```
 
@@ -139,38 +145,9 @@ Health check and API docs:
 - Health: `http://localhost:8088/healthz`
 - API Documentation: `http://localhost:8088/docs`
 
-## Configuration
-
-### Video Sources
-
-- **Webcam**: Use camera index (e.g., `"0"`, `"1"`)
-- **Video File**: Provide file path (e.g., `"video.mp4"`, `"/path/to/video.avi"`)
-- **RTSP Stream**: Use RTSP URL (e.g., `"rtsp://192.168.1.100/stream"`)
-
-### Target Specification
-
-Choose one of:
-
-1. **Target Area** (recommended): Specify desired bounding box area in pixels
-   ```python
-   target_area=12000  # For 640x480 video, roughly 1/25 of frame
-   ```
-
-2. **Chase Distance**: Specify desired distance, converted using calibration constant
-   ```python
-   chase_distance=2.0,
-   calibration_k=1e6  # target_area = calibration_k / chase_distance
-   ```
-
-### Control Gains
-
-- `k_f` (Forward gain): Controls response to size error (default: 0.5)
-- `k_t` (Turning gain): Controls response to horizontal position error (default: 0.5)  
-- `k_y` (Vertical gain): Controls response to vertical position error (default: 1.0)
-
 ## Output Format
 
-### JSON Message Structure
+Every frame produces a structured JSON message:
 
 ```json
 {
@@ -184,7 +161,7 @@ Choose one of:
   },
   "motors": {
     "out1": 0.12,
-    "out2": 0.07, 
+    "out2": 0.07,
     "out3": -0.34,
     "out4": -0.34,
     "out5": -0.34
@@ -192,130 +169,38 @@ Choose one of:
 }
 ```
 
-### Field Descriptions
+Field descriptions:
 
-- `ts`: Timestamp in milliseconds since epoch
-- `frameSize`: Video frame dimensions
-- `detection`: Object detection result (null if no detection above threshold)
-  - `bbox`: Bounding box coordinates [x1, y1, x2, y2]
-  - `area`: Bounding box area in pixels
-  - `centroid`: Center point coordinates  
-  - `confidence`: Detection confidence score [0, 1]
-- `motors`: Motor control outputs [-1, 1]
-  - `out1`, `out2`: Forward/turning engines (left/right)
-  - `out3`, `out4`, `out5`: Vertical engines (identical)
+- `ts`: timestamp in milliseconds since epoch
+- `frameSize`: video frame dimensions
+- `detection`: object detection result (null if no detection above threshold)
+  - `bbox`: bounding box coordinates [x1, y1, x2, y2]
+  - `area`: bounding box area in pixels
+  - `centroid`: center point coordinates
+  - `confidence`: detection confidence score [0, 1]
+- `motors`: motor control outputs in the range [-1, 1]
+  - `out1`, `out2`: forward/turning engines (left/right)
+  - `out3`, `out4`, `out5`: vertical engines (identical)
 
-### Motor Control Logic
+## Testing & Validation
 
-The system implements the Control System Specification:
+- Unit tests validate control logic (distance, turning, vertical alignment, clamping).
+- Integration tests cover end-to-end behavior, error handling, and schema validation.
 
-```
-E_size = (bbox_area / target_area) - 1
-X_norm = (cx / W) - 0.5
-Y_norm = (cy / H) - 0.5
-
-out1 = k_f*E_size + k_t*(-X_norm)  # Left engine
-out2 = k_f*E_size + k_t*(X_norm)   # Right engine
-out3 = out4 = out5 = k_y*(-Y_norm) # Vertical engines
-```
-
-All outputs are clamped to [-1, 1] range.
-
-## Integration Examples
-
-### With existing control-api
-
-```javascript
-// In your Node.js control-api
-const WebSocket = require('ws');
-
-const chaseWs = new WebSocket('ws://localhost:8088/ws/chase?video_source=0&model_path=yolov10n.pt&target_area=12000');
-
-chaseWs.on('message', (data) => {
-    const chaseResult = JSON.parse(data);
-    
-    // Forward to existing control system
-    publishToControlSystem({
-        timestamp: chaseResult.ts,
-        motors: chaseResult.motors,
-        hasTarget: chaseResult.detection !== null
-    });
-    
-    // Send to frontend via existing WebSocket
-    broadcastToClients({
-        type: 'chase_update',
-        data: chaseResult
-    });
-});
-```
-
-### As Python Library
-
-```python
-from chase_api import ChaseOutput, chase_stream
-import threading
-import queue
-
-class ChaseController:
-    def __init__(self, video_source, model_path):
-        self.output_queue = queue.Queue()
-        self.running = False
-        
-    def start_chase(self):
-        def chase_worker():
-            for result in chase_stream(
-                video_source=self.video_source,
-                model_path=self.model_path,
-                target_area=12000
-            ):
-                if not self.running:
-                    break
-                self.output_queue.put(result)
-        
-        self.running = True
-        self.chase_thread = threading.Thread(target=chase_worker)
-        self.chase_thread.start()
-    
-    def get_latest_result(self) -> ChaseOutput:
-        return self.output_queue.get()
-```
-
-## Testing
-
-Run the test suite:
+Run tests with:
 
 ```bash
-cd apps/auvctl/chase_api
 python -m pytest tests/ -v
-
-# Or use unittest
-python -m unittest discover tests/
 ```
-
-### Test Coverage
-
-- **Unit Tests** (`test_control.py`): Motor control logic validation
-  - Centered target behavior
-  - Left/right turning response
-  - Vertical movement response
-  - Output clamping
-  - Custom gain effects
-
-- **Integration Tests** (`test_integration.py`): End-to-end pipeline validation
-  - Mock detection processing
-  - Schema validation
-  - Error handling
-  - No-detection scenarios
 
 ## Dependencies
 
-- `ultralytics==8.2.103`: YOLO object detection
-- `opencv-python>=4.8,<5`: Video capture and processing
-- `fastapi>=0.110,<1`: WebSocket service
-- `uvicorn>=0.23,<1`: ASGI server
-- `pydantic>=2.6,<3`: Data validation and serialization
-- `numpy>=1.24,<2`: Numerical computations
-- `websockets>=12.0,<13`: WebSocket client support
+- Ultralytics YOLO (`ultralytics`) for object detection
+- OpenCV (`opencv-python`) for video input and frame processing
+- FastAPI & Uvicorn for WebSocket service support
+- Pydantic for schema validation and serialization
+- NumPy for mathematical operations
+- websockets for client support
 
 ## Architecture
 
@@ -339,50 +224,101 @@ python -m unittest discover tests/
 
 ## Troubleshooting
 
-### Common Issues
+Common issues:
 
-1. **Model Loading Fails**
+1. Model loading fails
    ```
    Error: Failed to load model: [Errno 2] No such file or directory: 'yolov10n.pt'
    ```
-   Solution: Ensure model file exists and path is correct. Download from Ultralytics if needed.
+   Solution: ensure model file exists and path is correct. Download from Ultralytics if needed.
 
-2. **Video Source Not Found**
+2. Video source not found
    ```
    Error: Failed to open video source: 0
    ```
-   Solution: Check camera is connected, not in use by other apps, or try different index.
+   Solution: check camera is connected, not in use by other apps, or try a different index.
 
-3. **Permission Denied on Camera**
+3. Permission denied on camera
    ```
    Error: Failed to setup capture: Permission denied
    ```
-   Solution: Grant camera permissions to terminal/application.
+   Solution: grant camera permissions to terminal/application.
 
-4. **WebSocket Connection Refused**
+4. WebSocket connection refused
    ```
    Error: Connection refused to localhost:8088
    ```
-   Solution: Ensure service is running with `python -m chase_api.service`.
+   Solution: ensure service is running with `python -m chase_api.service`.
 
-### Performance Tips
+Performance tips:
 
 - Use lower resolution video sources for better performance
 - Adjust confidence threshold to reduce false detections
 - Use appropriate target area size for your application
 - Consider frame rate vs. processing trade-offs
 
-### Debugging
+Debugging:
 
-Enable verbose output:
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-Test model loading separately:
 ```bash
 python -c "from chase_api.inference import test_inference; test_inference('yolov10n.pt')"
+```
+
+## Control System Specification
+
+Input parameters:
+
+- `bbox_area`: area of detected object’s bounding box
+- `target_area`: desired area (proxy for chase distance)
+- `(cx, cy)`: centroid of bounding box
+- `(W, H)`: frame dimensions
+
+Error calculations:
+
+```
+E_size = (bbox_area / target_area) - 1     # Distance error
+X_norm = (cx / W) - 0.5                    # Horizontal offset
+Y_norm = (cy / H) - 0.5                    # Vertical offset
+```
+
+Motor outputs:
+
+```
+out1 = k_f * E_size + k_t * (-X_norm)
+out2 = k_f * E_size + k_t * (X_norm)
+out3 = out4 = out5 = k_y * (-Y_norm)
+```
+
+Where:
+
+- `k_f`: forward gain (distance control)
+- `k_t`: turning gain (left/right alignment)
+- `k_y`: vertical gain
+
+All outputs are clamped to the range [-1, 1]. This ensures the AUV moves forward/backward to maintain distance, turns left/right to keep the target horizontally centered, and adjusts up/down to keep the target vertically centered.
+
+## Installation & Setup
+
+The repository can be cloned and installed directly from GitHub:
+
+```bash
+# Clone the repository
+git clone https://github.com/ddrisco11/chase_api.git
+cd chase_api
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+Alternatively, when used inside a larger workspace, navigate to the module directory before installing:
+
+```bash
+cd apps/auvctl/chase_api
+pip install -r requirements.txt
 ```
 
 ## License

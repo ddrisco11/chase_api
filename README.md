@@ -19,7 +19,7 @@ A versatile API system that receives video input, detects objects using an AI mo
 
 ## Detailed Overview
 
-The Vision-Based AUV Control System is designed to enable an Autonomous Underwater Vehicle (AUV) to see, track, and follow objects on its own. At its core, the system combines underwater video input with artificial intelligence to detect objects of interest and translate those detections into movement commands for the vehicle’s motors. This allows the AUV to maintain a steady pursuit of a moving target without direct human control.
+The Vision-Based AUV Control System is designed to enable an Autonomous Underwater Vehicle (AUV) to see, track, and follow objects on its own. The system combines underwater video input with artificial intelligence to detect objects of interest and translate those detections into movement commands for the vehicle’s motors. This allows the AUV to maintain a steady pursuit of a moving target without direct human control.
 
 The system is built around a flexible API (Application Programming Interface) that makes it easy to use in different ways. Operators or developers can interact with it through:
 
@@ -41,7 +41,7 @@ This versatility ensures that the system can adapt to research, testing, and rea
 
 - Hands-free tracking: once a target is identified, the AUV can autonomously follow it, reducing the need for constant operator input.
 - Flexible integration: the system is lightweight and can be embedded into existing AUV frameworks or used as a standalone module.
-- Customizable behavior: parameters such as sensitivity, chase distance, and movement responsiveness can be easily adjusted.
+- Customizable behavior: parameters such as chase distance and engine power can be easily adjusted.
 
 ## API Interfaces
 

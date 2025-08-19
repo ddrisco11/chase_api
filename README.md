@@ -43,10 +43,6 @@ This versatility ensures that the system can adapt to research, testing, and rea
 - Flexible integration: the system is lightweight and can be embedded into existing AUV frameworks or used as a standalone module.
 - Customizable behavior: parameters such as sensitivity, chase distance, and movement responsiveness can be easily adjusted.
 
-## Technical Specifications
-
-The Chase API is a lightweight, real-time control system that enables an Autonomous Underwater Vehicle (AUV) to autonomously track and follow targets using computer vision. It integrates object detection, target selection, and motor command generation into a modular and extensible package.
-
 ## API Interfaces
 
 The Chase API is designed for maximum flexibility, offering three primary modes of integration.
